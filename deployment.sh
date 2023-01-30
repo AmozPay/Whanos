@@ -64,19 +64,25 @@ terraform init
 
 case $1 in
 	create)
-		terraform apply -auto-approve $TERRAFORM_VARS | tee terraform_log.txt
+		terraform apply -auto-approve $TERRAFORM_VARS
 
-		K8_IP="$(terraform output -raw k8_ipv4)"
+		sleep 5
+
+		# K8_IP="$(terraform output -raw k8_ipv4)"
 		JENKINS_IP="$(terraform output -raw jenkins_ipv4)"
 		REGISTRY_IP="$(terraform output -raw registry_ipv4)"
 
 		cd ../ansible
-		echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" | sed 's/"//g' > ansible/hosts.txt
-		echo -ne "[jenkins]\n$JENKINS_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" | sed 's/"//g' >> ansible/hosts.txt
-		echo -ne "[registry]\n$REGISTRY_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" | sed 's/"//g' >> ansible/hosts.txt
+		echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" > hosts.txt
+		echo -ne "[jenkins]\n$JENKINS_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root ansible_become_password=$BECOME_PASS\n" >> hosts.txt
+		echo -ne "[registry]\n$REGISTRY_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root  ansible_become_password=$BECOME_PASS\n" >> hosts.txt
 
+		echo "registry_user: $REGISTRY_USER" > vars.yml
+		echo "registry_passwd: $REGISTRY_PASSWD" >> vars.yml
+		echo "domain_name: $DOMAIN_NAME" >> vars.yml
 		ansible-galaxy install -r requirements.yml
-		ansible-playbook playbook.yml -K -i ./hosts.txt
+		export ANSIBLE_HOST_KEY_CHECKING=False
+		ansible-playbook playbook.yml -i ./hosts.txt
 	;;
 
 	delete)

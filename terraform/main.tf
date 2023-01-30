@@ -49,26 +49,26 @@ resource "digitalocean_record" "registry_subdomain" {
 
 # KUBERNETES
 
-resource "digitalocean_kubernetes_cluster" "k8_app" {
-  name    = "app"
-  region  = "fra1"
-  version = "1.25.4-do.0"
+# resource "digitalocean_kubernetes_cluster" "k8_app" {
+#   name    = "app"
+#   region  = "fra1"
+#   version = "1.25.4-do.0"
 
-  node_pool {
-    name       = "autoscale-worker-pool"
-    size       = var.k8_node_size
-    auto_scale = true
-    min_nodes  = 2
-    max_nodes  = 3
-  }
-}
+#   node_pool {
+#     name       = "autoscale-worker-pool"
+#     size       = var.k8_node_size
+#     auto_scale = true
+#     min_nodes  = 2
+#     max_nodes  = 3
+#   }
+# }
 
-resource "digitalocean_record" "k8_subdomain" {
-  type = "A"
-  name = "${var.k8_subdomain}"
-  domain = data.digitalocean_domain.domain.id
-  value = digitalocean_kubernetes_cluster.k8_app.ipv4_address
-}
+# resource "digitalocean_record" "k8_subdomain" {
+#   type = "A"
+#   name = "${var.k8_subdomain}"
+#   domain = data.digitalocean_domain.domain.id
+#   value = digitalocean_kubernetes_cluster.k8_app.ipv4_address
+# }
 
 resource "digitalocean_project_resources" "resources" {
   project = data.digitalocean_project.project.id
@@ -87,6 +87,6 @@ output "jenkins_ipv4" {
   value = digitalocean_droplet.jenkins_droplet.ipv4_address
 }
 
-output "k8_ipv4" {
-  value = digitalocean_kubernetes_cluster.k8_app.ipv4_address
-}
+# output "k8_ipv4" {
+#   value = digitalocean_kubernetes_cluster.k8_app.ipv4_address
+# }

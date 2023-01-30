@@ -1,0 +1,66 @@
+- name:  add jenkins repository key
+  ansible.builtin.apt_key:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    state: present
+
+- name: add jenkins repository
+  ansible.builtin.apt_repository:
+    repo: deb http://pkg.jenkins.io/debian-stable binary/
+    state: present
+
+- name:  add caddy repository key
+  ansible.builtin.apt_key:
+    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+    state: present
+
+- name: add caddy sources 1/2
+  ansible.builtin.apt_repository:
+    repo: deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
+    state: present
+- name: add caddy sources 2/2
+  ansible.builtin.apt_repository:
+    repo: deb-src https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
+    state: present
+
+- name: install caddy
+  apt:
+    pkg: caddy
+
+- name: Template Caddyfile
+  ansible.builtin.template:
+    src: files/Caddyfile.jinja
+    dest: /etc/caddy
+  register: caddyfile
+
+- name: Install java
+  apt:
+    pkg:
+      - openjdk-17-jdk
+      - openjdk-17-jre
+
+- name: install jenkins
+  apt:
+    pkg: jenkins
+
+- name: copy jenkins config
+  copy:
+    src: files/jenkins
+    dest: /etc/default/jenkins
+  register: jenkinsfile
+
+- name: daemon-reload to pick up config changes
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Start jenkins
+  ansible.builtin.systemd:
+    name: jenkins
+    state: restarted
+  when: jenkinsfile.changed
+
+- name: Start caddy
+  ansible.builtin.systemd:
+    name: caddy
+    state: restarted
+  when: caddyfile.changed
+
