@@ -1,50 +1,60 @@
-- name: Wait for any possibly running unattended upgrade to finish
-  raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
-
-
-- name:  add jenkins repository key
-  ansible.builtin.apt_key:
-    url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+- name: Add apt keys
+  apt_key:
+    url: "{{ item }}"
     state: present
+  loop:
+    - https://download.docker.com/linux/ubuntu/gpg
+    - https://pkg.jenkins.io/debian-stable/jenkins.io.key
+    - https://dl.cloudsmith.io/public/caddy/stable/gpg.key
 
-- name: add jenkins repository
-  ansible.builtin.apt_repository:
-    repo: deb http://pkg.jenkins.io/debian-stable binary/
+- name: Add repositories
+  apt_repository:
+    repo: "{{ item }}"
     state: present
+  loop:
+    - deb https://download.docker.com/linux/ubuntu focal stable
+    - deb http://pkg.jenkins.io/debian-stable binary/
+    - deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
+    - deb-src https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
 
-- name:  add caddy repository key
-  ansible.builtin.apt_key:
-    url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-    state: present
 
-- name: add caddy sources 1/2
-  ansible.builtin.apt_repository:
-    repo: deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
-    state: present
-- name: add caddy sources 2/2
-  ansible.builtin.apt_repository:
-    repo: deb-src https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
-    state: present
-
-- name: install caddy
-  apt:
-    pkg: caddy
-
-- name: Template Caddyfile
-  ansible.builtin.template:
-    src: files/Caddyfile.jinja
-    dest: /etc/caddy/Caddyfile
-  register: caddyfile
-
-- name: Install java
+- name: Install java, caddy, jenkins and other packages
   apt:
     pkg:
       - openjdk-17-jdk
       - openjdk-17-jre
+      - caddy
+      - jenkins
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+      - virtualenv
+      - python3-setuptools
+    update_cache: true
+  register: apt_status
+  until: apt_status is success
+  delay: 6
+  retries: 10
 
-- name: install jenkins
+- name: Update apt and install docker packages
   apt:
-    pkg: jenkins
+    name:
+      - docker-ce
+      - docker-compose
+    state: latest
+    update_cache: true
+  register: apt_status2
+  until: apt_status2 is success
+  delay: 6
+  retries: 10
+
+- name: start docker
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    name: docker
+    state: started
 
 - name: copy jenkins config
   copy:
@@ -62,6 +72,7 @@
   copy:
     src: files/job-dsl.groovy
     dest: /var/lib/jenkins/job_dsl.groovy
+  register: jobs
 
 - name: Start jenkins
   ansible.builtin.systemd:
@@ -69,6 +80,12 @@
     name: jenkins
     state: restarted
   when: jenkinsfile.changed
+
+- name: Template Caddyfile
+  ansible.builtin.template:
+    src: files/Caddyfile.jinja
+    dest: /etc/caddy/Caddyfile
+  register: caddyfile
 
 - name: Start caddy
   ansible.builtin.systemd:
@@ -96,7 +113,7 @@
 - name: Install  plugins
   community.general.jenkins_plugin:
     name: "{{ item }}"
-    state: latest
+    state: present
     url_username: admin
     url_password: "{{ initialPassword.stdout }}"
     url: https://jenkins.{{ domain_name }}
@@ -106,21 +123,22 @@
     - github
     - job-dsl
     - role-strategy
-    # - script-security
+    - script-security
     - ws-cleanup
   register: plugins
 
-
-# - name: Setup configuration as code in jenkins service
-#   ansible.builtin.lineinfile:
-#     path: /lib/systemd/system/jenkins.service
-#     line: Environment="CASC_JENKINS_CONFIG=/var/lib/jenkins/casc.yml"
+- name: add jenkins to docker group
+  user:
+    name: jenkins
+    groups: docker
+    append: true
+  register: user_group
 
 - name: restart jenkins
   ansible.builtin.systemd:
     name: jenkins
     state: restarted
-  when: plugins.changed
+  when: plugins.changed or jobs.changed
 
 - name: enable plugins
   community.general.jenkins_plugin:
@@ -135,71 +153,11 @@
     - github
     - job-dsl
     - role-strategy
-    # - script-security
+    - script-security
     - ws-cleanup
 
 
-# required for jenkins jobs: install docker
-
-- name: Install required system packages
-  apt:
-    pkg:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - software-properties-common
-      - python3-pip
-      - virtualenv
-      - python3-setuptools
-    state: latest
-    update_cache: true
-
-- name: Add Docker GPG apt Key
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
-
-- name: Add Docker Repository
-  apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu focal stable
-    state: present
-
-- name: Update apt and install docker packages
-  apt:
-    name:
-      - docker-ce
-      - docker-compose
-    state: latest
-    update_cache: true
-
-# security: run docker in kata containers
-
-- name: Install kata containers
-  community.general.snap:
-    name:
-      - kata-containers
-    classic: true
-
-- name: make sure /etc/docker exists
-  ansible.builtin.file:
-    path: /etc/docker
-    state: directory
-    mode: '0755'
-
-# - name: setup docker to use kata-runtime
-#   copy:
-#     src: files/daemon.json
-#     dest: /etc/docker/daemon.json
-#   register: docker_daemon
-
-- name: restart docker
-  ansible.builtin.systemd:
-    daemon_reload: yes
-    name: docker
-    state: restarted
-  when: docker_daemon.changed
-
-- name: make sure /etc/docker exists
+- name: make sure /var/lib/jenkins/whanos_images exists
   ansible.builtin.file:
     path: /var/lib/jenkins/whanos_images
     state: directory
@@ -213,7 +171,10 @@
     - befunge
     - c
     - java
-    - js
+    - javascript
     - python
 
-
+- name: Copy detect_project.py to /bin/detect_project
+  ansible.builtin.copy:
+    src: "files/detect_project.py"
+    dest: /bin/detect_project

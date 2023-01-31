@@ -10,7 +10,7 @@ folder('Projects') {
 
 job('Baseimages/whanos-c') {
     steps {
-        shell('docker build -t whanos-c -f /var/lib/jenkins/whanos_images/c/Dockerfile.base .')
+        shell('echo $USER && docker build -t whanos-c -f /var/lib/jenkins/whanos_images/c/Dockerfile.base .')
     }
 }
 
@@ -58,7 +58,7 @@ job ('link-project') {
     steps {
         dsl {
             text ('''
-                    job("$DISPLAY_NAME") {
+                    job("Projects/$DISPLAY_NAME") {
                         wrappers {
                             preBuildCleanup()
                         }

@@ -1,0 +1,3 @@
+FROM whanos-befunge
+COPY main.bf .
+CMD ["bef", "main.bf"]
