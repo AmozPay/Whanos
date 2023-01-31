@@ -1,0 +1,6 @@
+FROM whanos-c
+RUN mkdir src
+COPY . src
+RUN cd src && make && mv compiled-app ..
+RUN rm -rf src
+CMD ["/app/compiled-app"]

@@ -1,0 +1,12 @@
+FROM whanos-c as befunge-build
+SHELL ["/bin/bash", "-c"]
+WORKDIR /app
+RUN apt update
+RUN apt install -y git
+RUN git clone https://github.com/catseye/Befunge-93.git
+RUN cd Befunge-93 && make
+
+FROM ubuntu:22.04
+COPY --from=befunge-build /app/Befunge-93/bin/bef /bin
+COPY main.bf .
+CMD ["bef", "main.bf"]

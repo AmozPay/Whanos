@@ -1,0 +1,6 @@
+FROM whanos-java
+RUN mkdir src
+COPY . src
+RUN cd src && mvn package && mv app.jar ..
+RUN rm -rf src
+CMD ["java", "-jar", "app.jar"]
