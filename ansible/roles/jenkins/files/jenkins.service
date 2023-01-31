@@ -48,7 +48,7 @@ Environment="JAVA_OPTS=-Djava.awt.headless=true -Djenkins.install.runSetupWizard
 # IP address to listen on for HTTP requests.
 # The default is to listen on all interfaces (0.0.0.0).
 Environment="JENKINS_LISTEN_ADDRESS=127.0.0.1"
-# Environment="CASC_JENKINS_CONFIG=/var/lib/jenkins/casc.yml"
+Environment="CASC_JENKINS_CONFIG=/var/lib/jenkins/casc.yml"
 
 # Port to listen on for HTTP requests. Set to -1 to disable.
 # To be able to listen on privileged ports (port numbers less than 1024),

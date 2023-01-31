@@ -1,0 +1,8 @@
+{
+    "default-runtime": "kata-runtime",
+    "runtimes": {
+        "kata-runtime": {
+            "path": "/snap/kata-containers/current/usr/bin/kata-runtime"
+        }
+    }
+}

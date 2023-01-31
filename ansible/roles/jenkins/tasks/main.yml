@@ -1,3 +1,7 @@
+- name: Wait for any possibly running unattended upgrade to finish
+  raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+
+
 - name:  add jenkins repository key
   ansible.builtin.apt_key:
     url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
@@ -48,6 +52,17 @@
     dest: /lib/systemd/system/jenkins.service
   register: jenkinsfile
 
+- name: Template CasC
+  ansible.builtin.template:
+    src: files/jenkins.casc.yml.jinja
+    dest: /var/lib/jenkins/casc.yml
+  register: casc
+
+- name: copy jobs
+  copy:
+    src: files/job-dsl.groovy
+    dest: /var/lib/jenkins/job_dsl.groovy
+
 - name: Start jenkins
   ansible.builtin.systemd:
     daemon_reload: yes
@@ -65,7 +80,7 @@
   command: "cat /var/lib/jenkins/secrets/initialAdminPassword"
   register: initialPassword
 
-- name: Wait for Jenkins to start up
+- name: Wait for Jenkins to be reachable
   uri:
     url: https://jenkins.{{ domain_name }}/login
     status_code: 200
@@ -95,16 +110,6 @@
     - ws-cleanup
   register: plugins
 
-- name: Template CasC
-  ansible.builtin.template:
-    src: files/jenkins.casc.yml.jinja
-    dest: /var/lib/jenkins/casc.yml
-  register: casc
-
-- name: copy jobs
-  copy:
-    src: files/job-dsl.groovy
-    dest: /var/lib/jenkins/job_dsl.groovy
 
 # - name: Setup configuration as code in jenkins service
 #   ansible.builtin.lineinfile:
@@ -132,5 +137,66 @@
     - role-strategy
     # - script-security
     - ws-cleanup
+
+
+# required for jenkins jobs: install docker
+
+- name: Install required system packages
+  apt:
+    pkg:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+      - virtualenv
+      - python3-setuptools
+    state: latest
+    update_cache: true
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu focal stable
+    state: present
+
+- name: Update apt and install docker packages
+  apt:
+    name:
+      - docker-ce
+      - docker-compose
+    state: latest
+    update_cache: true
+
+# security: run docker in kata containers
+
+- name: Install kata containers
+  community.general.snap:
+    name:
+      - kata-containers
+    classic: true
+
+- name: make sure /etc/docker exists
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+# - name: setup docker to use kata-runtime
+#   copy:
+#     src: files/daemon.json
+#     dest: /etc/docker/daemon.json
+#   register: docker_daemon
+
+- name: restart docker
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    name: docker
+    state: restarted
+  when: docker_daemon.changed
 
 
