@@ -6,9 +6,11 @@ set +a
 
 # export TF_LOG=DEBUG
 
-if [[ "$#" != "1" ]];
+if [[ "$#" -lt "1" ]];
 then
-	echo "Usage: deployment.sh [create|delete]"
+	echo "Usage: deployment.sh [create|delete] OPTIONS"
+	echo "Options:"
+	echo "		--skip-terraform, -s		skip resource creation"
 	exit 1
 fi
 
@@ -64,14 +66,20 @@ terraform init
 
 case $1 in
 	create)
-		terraform apply -auto-approve $TERRAFORM_VARS
+
+		if [[ "$2" != "--skip-terraform" &&  "$2" != "-s" ]];
+		then
+			terraform apply -auto-approve $TERRAFORM_VARS
+			echo "Waiting for ssh server to be ready"
+			sleep 30
+		else
+			echo "skipping terraform"
+		fi
 
 		# K8_IP="$(terraform output -raw k8_ipv4)"
 		JENKINS_IP="$(terraform output -raw jenkins_ipv4)"
 		REGISTRY_IP="$(terraform output -raw registry_ipv4)"
 
-		echo "Waiting for ssh server to be ready"
-		sleep 30
 
 		cd ../ansible
 		echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" > hosts.txt
