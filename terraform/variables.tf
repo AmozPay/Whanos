@@ -31,7 +31,7 @@ variable "region" {
 
 variable "jenkins_size" {
     type = string
-    default = "s-1vcpu-2gb"
+    default = "s-2vcpu-2gb"
 }
 
 variable "registry_size" {

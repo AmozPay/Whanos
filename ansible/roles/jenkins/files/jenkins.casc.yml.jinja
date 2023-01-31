@@ -1,0 +1,23 @@
+jenkins:
+  remotingSecurity:
+    enabled: true
+  systemMessage: "Whanos snaps you welcome"
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: whanos
+          name: {{ jenkins_admin_user }}
+          password: {{ jenkins_admin_passwd }}
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+          - assignments:
+            - "whanos"
+            name: admin
+            description: "He is unevitable"
+            permissions:
+              - "Overall/Administer"
+jobs:
+  - file: /var/lib/jenkins/job_dsl.groovy

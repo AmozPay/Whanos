@@ -66,11 +66,12 @@ case $1 in
 	create)
 		terraform apply -auto-approve $TERRAFORM_VARS
 
-		sleep 5
-
 		# K8_IP="$(terraform output -raw k8_ipv4)"
 		JENKINS_IP="$(terraform output -raw jenkins_ipv4)"
 		REGISTRY_IP="$(terraform output -raw registry_ipv4)"
+
+		echo "Waiting for ssh server to be ready"
+		sleep 30
 
 		cd ../ansible
 		echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" > hosts.txt
@@ -80,6 +81,8 @@ case $1 in
 		echo "registry_user: $REGISTRY_USER" > vars.yml
 		echo "registry_passwd: $REGISTRY_PASSWD" >> vars.yml
 		echo "domain_name: $DOMAIN_NAME" >> vars.yml
+		echo "jenkins_admin_user: $JENKINS_ADMIN_USER" >> vars.yml
+		echo "jenkins_admin_passwd: $JENKINS_ADMIN_PASSWD" >> vars.yml
 		ansible-galaxy install -r requirements.yml
 		export ANSIBLE_HOST_KEY_CHECKING=False
 		ansible-playbook playbook.yml -i ./hosts.txt

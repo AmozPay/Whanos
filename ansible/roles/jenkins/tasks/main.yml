@@ -29,7 +29,7 @@
 - name: Template Caddyfile
   ansible.builtin.template:
     src: files/Caddyfile.jinja
-    dest: /etc/caddy
+    dest: /etc/caddy/Caddyfile
   register: caddyfile
 
 - name: Install java
@@ -44,16 +44,13 @@
 
 - name: copy jenkins config
   copy:
-    src: files/jenkins
-    dest: /etc/default/jenkins
+    src: files/jenkins.service
+    dest: /lib/systemd/system/jenkins.service
   register: jenkinsfile
-
-- name: daemon-reload to pick up config changes
-  ansible.builtin.systemd:
-    daemon_reload: yes
 
 - name: Start jenkins
   ansible.builtin.systemd:
+    daemon_reload: yes
     name: jenkins
     state: restarted
   when: jenkinsfile.changed
@@ -63,4 +60,77 @@
     name: caddy
     state: restarted
   when: caddyfile.changed
+
+- name: get jenkins initial password
+  command: "cat /var/lib/jenkins/secrets/initialAdminPassword"
+  register: initialPassword
+
+- name: Wait for Jenkins to start up
+  uri:
+    url: https://jenkins.{{ domain_name }}/login
+    status_code: 200
+    timeout: 5
+  register: jenkins_service_status
+  # Keep trying for 5 mins in 5 sec intervals
+  retries: 60
+  delay: 5
+  until: >
+     'status' in jenkins_service_status and
+     jenkins_service_status['status'] == 200
+
+- name: Install  plugins
+  community.general.jenkins_plugin:
+    name: "{{ item }}"
+    state: latest
+    url_username: admin
+    url_password: "{{ initialPassword.stdout }}"
+    url: https://jenkins.{{ domain_name }}
+  loop:
+    - configuration-as-code
+    - credentials
+    - github
+    - job-dsl
+    - role-strategy
+    # - script-security
+    - ws-cleanup
+  register: plugins
+
+- name: Template CasC
+  ansible.builtin.template:
+    src: files/jenkins.casc.yml.jinja
+    dest: /var/lib/jenkins/casc.yml
+  register: casc
+
+- name: copy jobs
+  copy:
+    src: files/job-dsl.groovy
+    dest: /var/lib/jenkins/job_dsl.groovy
+
+# - name: Setup configuration as code in jenkins service
+#   ansible.builtin.lineinfile:
+#     path: /lib/systemd/system/jenkins.service
+#     line: Environment="CASC_JENKINS_CONFIG=/var/lib/jenkins/casc.yml"
+
+- name: restart jenkins
+  ansible.builtin.systemd:
+    name: jenkins
+    state: restarted
+  when: plugins.changed
+
+- name: enable plugins
+  community.general.jenkins_plugin:
+    name: "{{ item }}"
+    state: enabled
+    url_username: admin
+    url_password: "{{ initialPassword.stdout }}"
+    url: https://jenkins.{{ domain_name }}
+  loop:
+    - configuration-as-code
+    - credentials
+    - github
+    - job-dsl
+    - role-strategy
+    # - script-security
+    - ws-cleanup
+
 

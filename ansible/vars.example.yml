@@ -1,3 +1,5 @@
 registry_user: changeme
 registry_passwd: changeme,really
 domain_name: example.com
+jenkins_admin_user: olaAmigoIoSoyUnsafe
+jenkins_admin_passwd: youBetterNotUseMeAsAdminPassword999

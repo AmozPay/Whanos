@@ -25,6 +25,7 @@ resource "digitalocean_record" "jenkins_subdomain" {
   name = "${var.jenkins_subdomain}"
   domain = data.digitalocean_domain.domain.id
   value = digitalocean_droplet.jenkins_droplet.ipv4_address
+  ttl = 60
 }
 
 
@@ -44,6 +45,7 @@ resource "digitalocean_record" "registry_subdomain" {
   name = "${var.registry_subdomain}"
   domain = data.digitalocean_domain.domain.id
   value = digitalocean_droplet.registry_droplet.ipv4_address
+  ttl = 60
 }
 
 
