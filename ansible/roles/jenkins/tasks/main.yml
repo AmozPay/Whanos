@@ -199,4 +199,21 @@
     state: restarted
   when: docker_daemon.changed
 
+- name: make sure /etc/docker exists
+  ansible.builtin.file:
+    path: /var/lib/jenkins/whanos_images
+    state: directory
+    mode: '0755'
+
+- name: Copy whanos image build files
+  ansible.builtin.copy:
+    src: "files/whanos_images/{{ item }}"
+    dest: /var/lib/jenkins/whanos_images
+  loop:
+    - befunge
+    - c
+    - java
+    - js
+    - python
+
 
