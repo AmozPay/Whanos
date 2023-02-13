@@ -1,4 +1,10 @@
 
 registry.{{ domain_name }}:443 {
-    reverse_proxy   registry:5000
+    basicauth / bcrypt {
+        {{ registry_user }} {{ registry_passwd_hash }}
+    }
+    reverse_proxy /v2 registry:5000 {
+        # header_up Docker-Distribution-Api-Version "registry/2.0"
+        # header_up X-Forwarded-Proto "https"
+    }
 }
