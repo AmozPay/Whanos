@@ -63,7 +63,7 @@ job ('link-project') {
                             preBuildCleanup()
                         }
                         scm {
-                            github("$GITHUB_OWNER/GITHUB_REPO")
+                            github("$GITHUB_OWNER/$GITHUB_REPO")
                         }
                         triggers {
                             pollSCM {
@@ -71,23 +71,7 @@ job ('link-project') {
                             }
                         }
                         steps {
-                            shell('
-                                project_type=$(detect_project lang 2>.jenkins.error_log.txt)
-                                error=$?
-                                from_dockerfile=$(detect_project docker)
-                                k8=$(detect_project k8)
-
-                                if [[ "$error" -neq "0" ]];
-                                then
-                                    cat .jenkins.error_log.txt
-                                    exit 1
-                                fi
-                                rm .jenkins.error_log.txt
-                                if [[ "$from_dockerfile" -eq "true" ]];
-                                then
-                                    docker build -t whanos-$project_type-standalone -f /var/lib/jenkins/whanos_images/$project_type/Dockerfile.standalone .
-                                fi
-                            ')
+                            shell('build_and_deploy $GITHUB_OWNER/$GITHUB_REPO')
                         }
                     }
             '''.stripIndent())

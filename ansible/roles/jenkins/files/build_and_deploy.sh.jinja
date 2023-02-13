@@ -1,0 +1,35 @@
+#!/bin/bash
+
+
+if [[ "$#" -ne "1" ]];
+then
+    echo "invalid arguments"
+    exit 1
+fi
+
+project_type=$(detect_project lang 2>.jenkins.error_log.txt)
+error=$?
+
+if [[ "$error" -ne "0" ]];
+then
+    cat .jenkins.error_log.txt
+    exit 1
+fi
+
+repo=$1
+registry=registry.{{ domain_name }}
+docker_tag=$(echo -ne $repo | sha256sum | cut -d ' ' -f 1)
+from_dockerfile=$(detect_project docker)
+k8=$(detect_project k8)
+
+rm .jenkins.error_log.txt
+if [[ "$from_dockerfile" -eq "true" ]];
+then
+    echo "Detected project language: $project_type"
+
+    docker_image_full_name="$registry/whanos-$project_type-standalone:$docker_tag"
+    docker build -t "$docker_image_full_name" -f /var/lib/jenkins/whanos_images/$project_type/Dockerfile.standalone .
+
+    echo "pushing to registry"
+    docker push "$docker_image_full_name"
+fi

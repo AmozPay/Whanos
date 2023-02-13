@@ -1,52 +1,70 @@
-- name: Add apt keys
-  apt_key:
-    url: "{{ item }}"
-    state: present
-  loop:
-    - https://download.docker.com/linux/ubuntu/gpg
-    - https://pkg.jenkins.io/debian-stable/jenkins.io.key
-    - https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+- name: Download Long Term Jenkins release
+  get_url:
+    url: https://pkg.jenkins.io/redhat-stable/jenkins.repo
+    dest: /etc/yum.repos.d/jenkins.repo
 
-- name: Add repositories
-  apt_repository:
-    repo: "{{ item }}"
+- name: Import jenkins key from url
+  ansible.builtin.rpm_key:
     state: present
-  loop:
-    - deb https://download.docker.com/linux/ubuntu focal stable
-    - deb http://pkg.jenkins.io/debian-stable binary/
-    - deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
-    - deb-src https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main
+    key: https://pkg.jenkins.io/redhat-stable/jenkins.io.key
 
+- name: yum update
+  yum:
+    name: '*'
+    state: latest
+
+- name: Install java
+  yum:
+    name: java-devel
+    state: present
+
+- name: Install jenkins
+  yum:
+    name: jenkins
+    state: latest
+
+- name: Enable caddy repo
+  community.general.copr:
+    state: enabled
+    name: '@caddy/caddy'
 
 - name: Install java, caddy, jenkins and other packages
-  apt:
-    pkg:
-      - openjdk-17-jdk
-      - openjdk-17-jre
+  yum:
+    name:
+      - java
+      - java-devel
       - caddy
       - jenkins
-      - apt-transport-https
-      - ca-certificates
+      # - apt-transport-https
+      # - ca-certificates
       - curl
-      - software-properties-common
-      - python3-pip
-      - virtualenv
-      - python3-setuptools
+      # - software-properties-common
+      # - python3-pip
+      # - virtualenv
+      # - python3-setuptools
     update_cache: true
   register: apt_status
   until: apt_status is success
   delay: 6
   retries: 10
 
-- name: Update apt and install docker packages
-  apt:
+- name: Docker repository
+  get_url:
+    url: https://download.docker.com/linux/fedora/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+
+- name: Install docker packages
+  yum:
     name:
       - docker-ce
-      - docker-compose
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
     state: latest
     update_cache: true
-  register: apt_status2
-  until: apt_status2 is success
+  register: yum_status2
+  until: yum_status2 is success
   delay: 6
   retries: 10
 
@@ -74,12 +92,22 @@
     dest: /var/lib/jenkins/job_dsl.groovy
   register: jobs
 
+- name: create jenkins plugins dir
+  file:
+    path: /var/lib/jenkins/plugins
+    state: directory
+
+- name: copy CasC plugins
+  ansible.builtin.copy:
+    src: files/configuration-as-code.hpi
+    dest: /var/lib/jenkins/plugins/configuration-as-code.jpi
+
 - name: Start jenkins
   ansible.builtin.systemd:
     daemon_reload: yes
     name: jenkins
     state: restarted
-  when: jenkinsfile.changed
+  when: jenkinsfile.changed or jobs.changed
 
 - name: Template Caddyfile
   ansible.builtin.template:
@@ -93,9 +121,9 @@
     state: restarted
   when: caddyfile.changed
 
-- name: get jenkins initial password
-  command: "cat /var/lib/jenkins/secrets/initialAdminPassword"
-  register: initialPassword
+# - name: get jenkins initial password
+#   command: "cat /var/lib/jenkins/secrets/initialAdminPassword"
+#   register: initialPassword
 
 - name: Wait for Jenkins to be reachable
   uri:
@@ -114,11 +142,11 @@
   community.general.jenkins_plugin:
     name: "{{ item }}"
     state: present
-    url_username: admin
-    url_password: "{{ initialPassword.stdout }}"
+    url_username: "{{ jenkins_admin_user }}"
+    url_password: "{{ jenkins_admin_passwd }}"
     url: https://jenkins.{{ domain_name }}
   loop:
-    - configuration-as-code
+    # - configuration-as-code
     - credentials
     - github
     - job-dsl
@@ -134,18 +162,25 @@
     append: true
   register: user_group
 
+# - name: Log into private registry
+#   community.docker.docker_login:
+#     registry_url: registry.{{ domain_name }}
+#     username: "{{ registry_user }}"
+#     password: "{{ registry_passwd }}"
+#   become_user: jenkins
+
 - name: restart jenkins
   ansible.builtin.systemd:
     name: jenkins
     state: restarted
-  when: plugins.changed or jobs.changed
+  when: plugins.changed
 
 - name: enable plugins
   community.general.jenkins_plugin:
     name: "{{ item }}"
     state: enabled
-    url_username: admin
-    url_password: "{{ initialPassword.stdout }}"
+    url_username: "{{ jenkins_admin_user }}"
+    url_password: "{{ jenkins_admin_passwd }}"
     url: https://jenkins.{{ domain_name }}
   loop:
     - configuration-as-code
@@ -155,7 +190,6 @@
     - role-strategy
     - script-security
     - ws-cleanup
-
 
 - name: make sure /var/lib/jenkins/whanos_images exists
   ansible.builtin.file:
@@ -178,3 +212,8 @@
   ansible.builtin.copy:
     src: "files/detect_project.py"
     dest: /bin/detect_project
+
+- name: template build_and_deploy.sh.jinja to /bin/build_and_deploy
+  ansible.builtin.template:
+    src: "files/build_and_deploy.sh.jinja"
+    dest: /bin/build_and_deploy

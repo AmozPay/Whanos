@@ -1,3 +1,5 @@
+# gcc 11.12
+
 FROM ubuntu:22.04
 SHELL ["/bin/bash", "-c"]
 RUN apt update
