@@ -70,15 +70,28 @@ case $1 in
 		if [[ "$2" != "--skip-terraform" &&  "$2" != "-s" ]];
 		then
 			terraform apply -auto-approve $TERRAFORM_VARS
-			echo "Waiting for ssh server to be ready"
-			sleep 30
 		else
 			echo "skipping terraform"
 		fi
 
+		seconds_to_wait=5
+
 		# K8_IP="$(terraform output -raw k8_ipv4)"
 		JENKINS_IP="$(terraform output -raw jenkins_ipv4)"
 		REGISTRY_IP="$(terraform output -raw registry_ipv4)"
+		echo "Waiting for ssh connections to be ready"
+		for i in {1..20}
+		do
+			echo "Attempt n. $i of 20"
+			if ( ! (ssh -o StrictHostKeyChecking=no "root@$JENKINS_IP" "true") || ! ( ssh -o StrictHostKeyChecking=no "root@$REGISTRY_IP" "true"));
+			then
+				echo "waiting $seconds_to_wait more seconds"
+				sleep $seconds_to_wait
+			else
+				echo "Servers ready to accept connections"
+				break
+			fi
+		done
 
 
 		cd ../ansible
@@ -88,12 +101,12 @@ case $1 in
 
 		echo "registry_user: $REGISTRY_USER" > vars.yml
 		echo "registry_passwd: $REGISTRY_PASSWD" >> vars.yml
+		echo "certificate_email: $CERTIFICATE_EMAIL" >> vars.yml
 		echo "domain_name: $DOMAIN_NAME" >> vars.yml
 		echo "jenkins_admin_user: $JENKINS_ADMIN_USER" >> vars.yml
 		echo "jenkins_admin_passwd: $JENKINS_ADMIN_PASSWD" >> vars.yml
 		ansible-galaxy install -r requirements.yml
-		export ANSIBLE_HOST_KEY_CHECKING=False
-		ansible-playbook playbook.yml -i ./hosts.txt
+		ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbook.yml -i ./hosts.txt
 	;;
 
 	delete)
