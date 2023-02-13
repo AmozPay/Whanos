@@ -1,13 +1,9 @@
-FROM ubuntu:22.04
+FROM gcc:11.2.0 as befunge
 SHELL ["/bin/bash", "-c"]
-RUN apt update
-RUN apt install -y build-essential
 WORKDIR /app
-RUN apt update
-RUN apt install -y git
 RUN git clone https://github.com/catseye/Befunge-93.git
 RUN cd Befunge-93 && make
 
-FROM ubuntu:22.04
-COPY --from=befunge-build /app/Befunge-93/bin/bef /bin
-CMD ["bef", "main.bf"]
+FROM alpine:3.17.2
+COPY --from=befunge /app/Befunge-93/bin/bef /bin
+ONBUILD COPY main.bf .

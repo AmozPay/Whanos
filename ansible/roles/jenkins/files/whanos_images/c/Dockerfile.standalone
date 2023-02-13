@@ -1,6 +1,5 @@
-FROM whanos-c
-RUN mkdir src
-COPY . src
-RUN cd src && make && mv compiled-app ..
-RUN rm -rf src
+FROM whanos-c as builder
+FROM alpine:3.17.2
+WORKDIR /app
+RUN COPY --from=builder /app/compiled-app .
 CMD ["/app/compiled-app"]

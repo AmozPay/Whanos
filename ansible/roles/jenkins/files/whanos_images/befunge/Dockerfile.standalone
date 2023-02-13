@@ -1,3 +1,2 @@
 FROM whanos-befunge
-COPY main.bf .
-CMD ["bef", "main.bf"]
+ENTRYPOINT ["/bin/bef", "main.bf"]

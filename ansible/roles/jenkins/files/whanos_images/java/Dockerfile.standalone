@@ -1,6 +1,6 @@
-FROM whanos-java
-RUN mkdir src
-COPY . src
-RUN cd src && mvn package && mv app.jar ..
-RUN rm -rf src
-CMD ["java", "-jar", "app.jar"]
+FROM whanos-java AS builder
+FROM openjdk:17-alpine3.14
+
+WORKDIR /app
+COPY --from=builder /app/app.jar .
+ENTRYPOINT ["java", "-jar", "app.jar"]

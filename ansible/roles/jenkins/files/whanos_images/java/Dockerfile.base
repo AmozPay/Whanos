@@ -1,5 +1,6 @@
-FROM ubuntu:22.04
+FROM maven:3.8.7-eclipse-temurin-17-alpine
 SHELL ["/bin/bash", "-c"]
-RUN apt update
-RUN apt install -y openjdk-17-jdk openjdk-17-jre maven
 WORKDIR /app
+ONBUILD COPY . .
+ONBUILD RUN mvn package
+

@@ -1,7 +1,5 @@
-# gcc 11.12
-
-FROM ubuntu:22.04
+FROM gcc:11.2.0
 SHELL ["/bin/bash", "-c"]
-RUN apt update
-RUN apt install -y build-essential
 WORKDIR /app
+ONBUILD COPY . .
+ONBUILD RUN make
