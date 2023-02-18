@@ -8,18 +8,31 @@
       - python3-pip
       - virtualenv
       - python3-setuptools
+      - letsencrypt
     state: latest
     update_cache: true
+  register: apt_status_1
+  until: apt_status_1 is success
+  delay: 6
+  retries: 10
 
 - name: Add Docker GPG apt Key
   apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
+  register: apt_status_1
+  until: apt_status_1 is success
+  delay: 6
+  retries: 10
 
 - name: Add Docker Repository
   apt_repository:
     repo: deb https://download.docker.com/linux/ubuntu focal stable
     state: present
+  register: apt_status_2
+  until: apt_status_2 is success
+  delay: 6
+  retries: 10
 
 - name: Update apt and install docker packages
   apt:
@@ -28,32 +41,28 @@
       - docker-compose
     state: latest
     update_cache: true
+  register: apt_status_3
+  until: apt_status_3 is success
+  delay: 6
+  retries: 10
 
-- name: Create caddy
-  ansible.builtin.file:
-    path: /app/caddy
+- name: create dest dir for caddyfile mount
+  file:
+    path: /mnt/caddy
     state: directory
-    mode: '0755'
 
 - name: Template Caddyfile
   ansible.builtin.template:
     src: files/Caddyfile.jinja
-    dest: /app/caddy
-
-- name: Install passlib
-  pip:
-    name: passlib
-
-- name: create registry passwd
-  community.general.htpasswd:
-    path: /etc/registry_passwd
-    name: "{{ registry_user }}"
-    password: "{{ registry_passwd }}"
-    owner: root
-    mode: 0640
+    dest: /mnt/caddy/Caddyfile
+  register: caddyfile
+  vars:
+    registry_passwd_hash: "{{ registry_passwd | password_hash('bcrypt') }}"
 
 - name: Create and start services
+  when: caddyfile.changed
   community.docker.docker_compose:
+    restarted: true
     project_name: whanos_registry
     definition:
       version: "3"
@@ -62,21 +71,24 @@
           image: docker.io/registry
           volumes:
             - registry_data:/var/lib/registry
-            - /etc/registry_passwd:/auth/htpasswd:ro
           environment:
-            REGISTRY_AUTH: htpasswd
-            REGISTRY_AUTH_HTPASSWD_REALM: "Registry Realm"
-            REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
-          ports:
-            - 5000:5000
+            REGISTRY_HTTP_ADDR: 0.0.0.0:5000
           restart: always
+          networks:
+            - registry_network
         caddy:
           image: caddy:2.6.2-alpine
           ports:
             - 443:443
             - 80:80
           volumes:
-            - /app/caddy:/etc/caddy/
+            - /mnt/caddy:/etc/caddy/
+            - caddy_data:/data
           restart: always
+          networks:
+            - registry_network
       volumes:
         registry_data:
+        caddy_data:
+      networks:
+        registry_network:

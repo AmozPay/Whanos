@@ -100,7 +100,7 @@
 - name: copy CasC plugins
   ansible.builtin.copy:
     src: files/configuration-as-code.hpi
-    dest: /var/lib/jenkins/plugins/configuration-as-code.jpi
+    dest: /var/lib/jenkins/plugins/configuration-as-code.hpi
 
 - name: Start jenkins
   ansible.builtin.systemd:
@@ -155,26 +155,6 @@
     - ws-cleanup
   register: plugins
 
-- name: add jenkins to docker group
-  user:
-    name: jenkins
-    groups: docker
-    append: true
-  register: user_group
-
-# - name: Log into private registry
-#   community.docker.docker_login:
-#     registry_url: registry.{{ domain_name }}
-#     username: "{{ registry_user }}"
-#     password: "{{ registry_passwd }}"
-#   become_user: jenkins
-
-- name: restart jenkins
-  ansible.builtin.systemd:
-    name: jenkins
-    state: restarted
-  when: plugins.changed
-
 - name: enable plugins
   community.general.jenkins_plugin:
     name: "{{ item }}"
@@ -190,6 +170,27 @@
     - role-strategy
     - script-security
     - ws-cleanup
+
+- name: add jenkins to docker group
+  user:
+    name: jenkins
+    groups: docker
+    append: true
+  register: user_group
+
+- name: Log into private registry
+  community.docker.docker_login:
+    registry_url: registry.{{ domain_name }}
+    username: "{{ registry_user }}"
+    password: "{{ registry_passwd }}"
+  become_user: jenkins
+
+- name: restart jenkins
+  ansible.builtin.systemd:
+    name: jenkins
+    state: restarted
+  when: plugins.changed
+
 
 - name: make sure /var/lib/jenkins/whanos_images exists
   ansible.builtin.file:
