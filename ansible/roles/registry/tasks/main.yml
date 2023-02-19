@@ -57,7 +57,7 @@
     dest: /mnt/caddy/Caddyfile
   register: caddyfile
   vars:
-    registry_passwd_hash: "{{ registry_passwd | password_hash('bcrypt') }}"
+    registry_passwd_hash: "{{ registry_passwd | password_hash('bcrypt', 'Bs9KODXun8sMaq6t7s27XO') }}"
 
 - name: Create and start services
   when: caddyfile.changed
