@@ -8,19 +8,14 @@
     state: present
     key: https://pkg.jenkins.io/redhat-stable/jenkins.io.key
 
+- name: Docker repository
+  get_url:
+    url: https://download.docker.com/linux/fedora/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+
 - name: yum update
   yum:
     name: '*'
-    state: latest
-
-- name: Install java
-  yum:
-    name: java-devel
-    state: present
-
-- name: Install jenkins
-  yum:
-    name: jenkins
     state: latest
 
 - name: Enable caddy repo
@@ -28,45 +23,25 @@
     state: enabled
     name: '@caddy/caddy'
 
-- name: Install java, caddy, jenkins and other packages
+- name: Install java, caddy, docker, jenkins and other packages
   yum:
     name:
       - java
       - java-devel
       - caddy
       - jenkins
-      # - apt-transport-https
-      # - ca-certificates
       - curl
-      # - software-properties-common
-      # - python3-pip
-      # - virtualenv
-      # - python3-setuptools
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
     update_cache: true
   register: apt_status
   until: apt_status is success
   delay: 6
   retries: 10
 
-- name: Docker repository
-  get_url:
-    url: https://download.docker.com/linux/fedora/docker-ce.repo
-    dest: /etc/yum.repos.d/docker-ce.repo
-
-- name: Install docker packages
-  yum:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-buildx-plugin
-      - docker-compose-plugin
-    state: latest
-    update_cache: true
-  register: yum_status2
-  until: yum_status2 is success
-  delay: 6
-  retries: 10
 
 - name: start docker
   ansible.builtin.systemd:
@@ -82,8 +57,8 @@
 
 - name: Template CasC
   ansible.builtin.template:
-    src: files/jenkins.casc.yml.jinja
-    dest: /var/lib/jenkins/casc.yml
+    src: files/jenkins.yaml.jinja
+    dest: /var/lib/jenkins/jenkins.yaml
   register: casc
 
 - name: copy jobs
@@ -96,18 +71,23 @@
   file:
     path: /var/lib/jenkins/plugins
     state: directory
+    owner: jenkins
+    group: jenkins
 
-- name: copy CasC plugins
-  ansible.builtin.copy:
-    src: files/configuration-as-code.hpi
-    dest: /var/lib/jenkins/plugins/configuration-as-code.hpi
+- name: download casc plugin before setup
+  get_url:
+    url: "https://updates.jenkins-ci.org/latest/{{ item }}.hpi"
+    dest: /var/lib/jenkins/plugins/{{ item }}.jpi
+  loop:
+    - configuration-as-code
+  register: plugins
 
 - name: Start jenkins
   ansible.builtin.systemd:
     daemon_reload: yes
     name: jenkins
     state: restarted
-  when: jenkinsfile.changed or jobs.changed
+  when: jenkinsfile.changed or jobs.changed or casc.changed or plugins.changed
 
 - name: Template Caddyfile
   ansible.builtin.template:
@@ -120,10 +100,6 @@
     name: caddy
     state: restarted
   when: caddyfile.changed
-
-# - name: get jenkins initial password
-#   command: "cat /var/lib/jenkins/secrets/initialAdminPassword"
-#   register: initialPassword
 
 - name: Wait for Jenkins to be reachable
   uri:
@@ -138,7 +114,7 @@
      'status' in jenkins_service_status and
      jenkins_service_status['status'] == 200
 
-- name: Install  plugins
+- name: Install  plugins and their missing dependecies
   community.general.jenkins_plugin:
     name: "{{ item }}"
     state: present
@@ -146,16 +122,35 @@
     url_password: "{{ jenkins_admin_passwd }}"
     url: https://jenkins.{{ domain_name }}
   loop:
-    # - configuration-as-code
+    - configuration-as-code
     - credentials
     - github
     - job-dsl
     - role-strategy
     - script-security
     - ws-cleanup
-  register: plugins
+  register: plugins_newpasswd
 
-- name: enable plugins
+- name: restart jenkins
+  ansible.builtin.systemd:
+    name: jenkins
+    state: restarted
+  when: plugins_newpasswd.changed
+
+- name: Wait for Jenkins to be reachable
+  uri:
+    url: https://jenkins.{{ domain_name }}/login
+    status_code: 200
+    timeout: 5
+  register: jenkins_service_status
+  # Keep trying for 5 mins in 5 sec intervals
+  retries: 60
+  delay: 5
+  until: >
+     'status' in jenkins_service_status and
+     jenkins_service_status['status'] == 200
+
+- name: enable plugins (with new password)
   community.general.jenkins_plugin:
     name: "{{ item }}"
     state: enabled
@@ -184,13 +179,6 @@
     username: "{{ registry_user }}"
     password: "{{ registry_passwd }}"
   become_user: jenkins
-
-- name: restart jenkins
-  ansible.builtin.systemd:
-    name: jenkins
-    state: restarted
-  when: plugins.changed
-
 
 - name: make sure /var/lib/jenkins/whanos_images exists
   ansible.builtin.file:

@@ -6,7 +6,7 @@ jenkins:
     local:
       allowsSignup: false
       users:
-        - id: admin
+        - id: {{ jenkins_admin_user }}
           name: {{ jenkins_admin_user }}
           password: {{ jenkins_admin_passwd }}
   authorizationStrategy:
@@ -14,10 +14,14 @@ jenkins:
       roles:
         global:
           - assignments:
-            - "admin"
+            - "{{ jenkins_admin_user }}"
             name: administrator
             description: "One user to rule them all"
             permissions:
               - "Overall/Administer"
+unclassified:
+  location:
+    adminAddress: "address not configured yet <nobody@nowhere>"
+    url: "https://jenkins.{{ domain_name }}/"
 jobs:
   - file: /var/lib/jenkins/job_dsl.groovy

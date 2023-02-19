@@ -1,9 +1,18 @@
+- hosts: registry
+  become: true
+  vars_files:
+    - ./vars.yml
+  roles:
+    - role: registry
+      tags: registry
+
 - hosts: jenkins
   become: true
   vars_files:
     - ./vars.yml
   roles:
-    - jenkins
+    - role: jenkins
+      tags: jenkins
 
 # - hosts: k8
 #   become: true
@@ -11,10 +20,3 @@
 #     - ./vars.yml
 #   roles:
 #     - k8
-
-- hosts: registry
-  become: true
-  vars_files:
-    - ./vars.yml
-  roles:
-    - registry

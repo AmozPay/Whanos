@@ -43,12 +43,12 @@ Environment="JENKINS_WEBROOT=%C/jenkins/war"
 #Environment="JENKINS_JAVA_CMD=/etc/alternatives/java"
 
 # Arguments for the Jenkins JVM
-Environment="JAVA_OPTS=-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true"
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
 
 # IP address to listen on for HTTP requests.
 # The default is to listen on all interfaces (0.0.0.0).
 Environment="JENKINS_LISTEN_ADDRESS=127.0.0.1"
-Environment="CASC_JENKINS_CONFIG=/var/lib/jenkins/casc.yml"
+Environment="CASC_JENKINS_CONFIG=/var/lib/jenkins/jenkins.yaml"
 
 # Port to listen on for HTTP requests. Set to -1 to disable.
 # To be able to listen on privileged ports (port numbers less than 1024),
