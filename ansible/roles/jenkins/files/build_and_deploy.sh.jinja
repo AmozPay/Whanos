@@ -18,7 +18,8 @@ fi
 
 repo=$1
 registry=registry.{{ domain_name }}
-docker_tag=$(echo -ne $repo | sha256sum | cut -d ' ' -f 1)
+branch="$(git rev-parse --abbrev-ref HEAD)"
+docker_tag=$(echo -ne $repo:$branch | sha256sum | cut -d ' ' -f 1)
 from_dockerfile=$(detect_project docker)
 k8=$(detect_project k8)
 

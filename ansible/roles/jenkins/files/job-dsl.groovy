@@ -1,5 +1,5 @@
 folder('Baseimages') {
-    displayName('Base images')
+    displayName('Whanos base images')
     description('Jobs for building base images')
 }
 
@@ -53,17 +53,26 @@ job ('link-project') {
     parameters {
         stringParam('GITHUB_OWNER', '', 'GitHub repository owner')
         stringParam('GITHUB_REPO', '', 'GitHub repository repository name')
-        stringParam('DISPLAY_NAME', '', 'Display name for the job')
+        stringParam('GITHUB_CREDENTIALS', '', 'Github Token for private repo. Leave empty if public')
+        stringParam('BRANCH', '', 'Branch to pull. If empty, will get the repository default branch')
     }
     steps {
         dsl {
             text ('''
-                    job("Projects/$DISPLAY_NAME") {
+                    folder("Projects/$GITHUB_OWNER") {}
+                    folder("Projects/$GITHUB_OWNER/$GITHUB_REPO") {}
+                    job("Projects/$GITHUB_OWNER/$GITHUB_REPO/::$BRANCH") {
                         wrappers {
                             preBuildCleanup()
                         }
                         scm {
-                            github("$GITHUB_OWNER/$GITHUB_REPO")
+                            git {
+                                remote {
+                                    github("$GITHUB_OWNER/$GITHUB_REPO")
+                                    credentials("$GITHUB_CREDENTIALS")
+                                    branch("$BRANCH")
+                                }
+                            }
                         }
                         triggers {
                             pollSCM {
@@ -71,7 +80,7 @@ job ('link-project') {
                             }
                         }
                         steps {
-                            shell('build_and_deploy $GITHUB_OWNER/$GITHUB_REPO')
+                            shell("build_and_deploy $GITHUB_OWNER/$GITHUB_REPO")
                         }
                     }
             '''.stripIndent())

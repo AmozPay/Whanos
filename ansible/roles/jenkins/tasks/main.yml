@@ -26,6 +26,7 @@
 - name: Install java, caddy, docker, jenkins and other packages
   yum:
     name:
+      - git
       - java
       - java-devel
       - caddy
@@ -201,8 +202,14 @@
   ansible.builtin.copy:
     src: "files/detect_project.py"
     dest: /bin/detect_project
+    mode: '0711'
+    owner: jenkins
+    group: jenkins
 
 - name: template build_and_deploy.sh.jinja to /bin/build_and_deploy
   ansible.builtin.template:
     src: "files/build_and_deploy.sh.jinja"
     dest: /bin/build_and_deploy
+    mode: '0711'
+    owner: jenkins
+    group: jenkins
