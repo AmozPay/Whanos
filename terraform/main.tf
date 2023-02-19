@@ -31,22 +31,22 @@ resource "digitalocean_record" "jenkins_subdomain" {
 
 # DOCKER REGISTRY
 
-# resource "digitalocean_droplet" "registry_droplet" {
-#   name    = "registry"
-#   region  = "fra1"
-#   image   = "ubuntu-22-04-x64"
-#   size    = var.registry_size
-#   ssh_keys = [var.ssh_key_id]
-# }
+resource "digitalocean_droplet" "registry_droplet" {
+  name    = "registry"
+  region  = "fra1"
+  image   = "fedora-37-x64"
+  size    = var.registry_size
+  ssh_keys = [var.ssh_key_id]
+}
 
 
-# resource "digitalocean_record" "registry_subdomain" {
-#   type = "A"
-#   name = "${var.registry_subdomain}"
-#   domain = data.digitalocean_domain.domain.id
-#   value = digitalocean_droplet.registry_droplet.ipv4_address
-#   ttl = 60
-# }
+resource "digitalocean_record" "registry_subdomain" {
+  type = "A"
+  name = "${var.registry_subdomain}"
+  domain = data.digitalocean_domain.domain.id
+  value = digitalocean_droplet.registry_droplet.ipv4_address
+  ttl = 60
+}
 
 
 # KUBERNETES
@@ -75,15 +75,15 @@ resource "digitalocean_record" "jenkins_subdomain" {
 resource "digitalocean_project_resources" "resources" {
   project = data.digitalocean_project.project.id
   resources = [
-    # digitalocean_droplet.registry_droplet.urn,
+    digitalocean_droplet.registry_droplet.urn,
     digitalocean_droplet.jenkins_droplet.urn,
   ]
 }
 
 
-# output "registry_ipv4" {
-#   value = digitalocean_droplet.registry_droplet.ipv4_address
-# }
+output "registry_ipv4" {
+  value = digitalocean_droplet.registry_droplet.ipv4_address
+}
 
 output "jenkins_ipv4" {
   value = digitalocean_droplet.jenkins_droplet.ipv4_address

@@ -1,50 +1,41 @@
-- name: Install required system packages
-  apt:
-    pkg:
-      - apt-transport-https
-      - ca-certificates
-      - curl
-      - software-properties-common
-      - python3-pip
-      - virtualenv
-      - python3-setuptools
-      - letsencrypt
+- name: Docker repository
+  get_url:
+    url: https://download.docker.com/linux/fedora/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+
+- name: yum update
+  yum:
+    name: '*'
     state: latest
-    update_cache: true
-  register: apt_status_1
-  until: apt_status_1 is success
-  delay: 6
-  retries: 10
 
-- name: Add Docker GPG apt Key
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
-  register: apt_status_1
-  until: apt_status_1 is success
-  delay: 6
-  retries: 10
-
-- name: Add Docker Repository
-  apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu focal stable
-    state: present
-  register: apt_status_2
-  until: apt_status_2 is success
-  delay: 6
-  retries: 10
-
-- name: Update apt and install docker packages
-  apt:
+- name: Install docker and python
+  yum:
     name:
       - docker-ce
-      - docker-compose
-    state: latest
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+      - python3
+      - python3-pip
     update_cache: true
-  register: apt_status_3
-  until: apt_status_3 is success
+  register: apt_status
+  until: apt_status is success
   delay: 6
   retries: 10
+
+- name: install docker sdk python
+  pip:
+    name: "{{ item }}"
+  loop:
+    - docker
+    - docker-compose
+
+- name: start docker
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    name: docker
+    state: started
 
 - name: create dest dir for caddyfile mount
   file:
@@ -60,7 +51,7 @@
     registry_passwd_hash: "{{ registry_passwd | password_hash('bcrypt', 'Bs9KODXun8sMaq6t7s27XO') }}"
 
 - name: Create and start services
-  when: caddyfile.changed
+  # when: caddyfile.changed
   community.docker.docker_compose:
     restarted: true
     project_name: whanos_registry
