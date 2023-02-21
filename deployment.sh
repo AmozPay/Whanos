@@ -20,6 +20,12 @@ then
 	exit 1
 fi
 
+if [[ "$DIGITAL_OCEAN_KUBECTL_TOKEN" == "" ]];
+then
+	echo "value DIGITAL_OCEAN_KUBECTL_TOKEN missing in .env"
+	exit 1
+fi
+
 if [[ "$PROJECT_NAME" == "" ]];
 then
 	echo "value PROJECT_NAME missing in .env"
@@ -76,7 +82,7 @@ case $1 in
 
 		seconds_to_wait=5
 
-		# K8_IP="$(terraform output -raw k8_ipv4)"
+		K8_ID="$(terraform output -raw k8_id)"
 		JENKINS_IP="$(terraform output -raw jenkins_ipv4)"
 		REGISTRY_IP="$(terraform output -raw registry_ipv4)"
 		echo "Waiting for ssh connections to be ready"
@@ -95,7 +101,7 @@ case $1 in
 
 
 		cd ../ansible
-		echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" > hosts.txt
+		# echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" > hosts.txt
 		echo -ne "[jenkins]\n$JENKINS_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root ansible_become_password=$BECOME_PASS\n" >> hosts.txt
 		echo -ne "[registry]\n$REGISTRY_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root  ansible_become_password=$BECOME_PASS\n" >> hosts.txt
 
@@ -105,6 +111,8 @@ case $1 in
 		echo "domain_name: $DOMAIN_NAME" >> vars.yml
 		echo "jenkins_admin_user: $JENKINS_ADMIN_USER" >> vars.yml
 		echo "jenkins_admin_passwd: $JENKINS_ADMIN_PASSWD" >> vars.yml
+		echo "digitalocean_token: $DIGITAL_OCEAN_KUBECTL_TOKEN" >> vars.yml
+		echo "k8_id: $K8_ID" >> vars.yml
 		ansible-galaxy install -r requirements.yml
 		ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbook.yml -i ./hosts.txt
 	;;
