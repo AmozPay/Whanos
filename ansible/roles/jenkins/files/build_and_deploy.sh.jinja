@@ -1,7 +1,8 @@
 #!/bin/bash
 
+set -eux
 
-if [[ "$#" -ne "1" ]];
+if [[ "$#" -ne "2" ]];
 then
     echo "invalid arguments"
     exit 1
@@ -16,21 +17,37 @@ then
     exit 1
 fi
 
-repo=$1
+user="$(echo $1| tr '[:upper:]' '[:lower:]')"
+repo="$(echo $2| tr '[:upper:]' '[:lower:]')"
 registry=registry.{{ domain_name }}
-branch="$(git rev-parse --abbrev-ref HEAD)"
-docker_tag=$(echo -ne $repo:$branch | sha256sum | cut -d ' ' -f 1)
+fullbranch="$(git name-rev --name-only HEAD)"
+branch="$(echo $fullbranch | cut -d '/' -f 3)"
+docker_tag="$user.$repo.$branch"
 from_dockerfile=$(detect_project docker)
 k8=$(detect_project k8)
 
 rm .jenkins.error_log.txt
-if [[ "$from_dockerfile" -eq "true" ]];
+echo "Detected project language: $project_type"
+
+
+if [[ "$from_dockerfile" == "false" ]];
 then
-    echo "Detected project language: $project_type"
+    dockerfile=/var/lib/jenkins/whanos_images/$project_type/Dockerfile.standalone
+    docker_image_name="whanos-$project_type-standalone"
+else
+    dockerfile=./Dockerfile
+    docker_image_name="whanos-$project_type-custom"
+fi
 
-    docker_image_full_name="$registry/whanos-$project_type-standalone:$docker_tag"
-    docker build -t "$docker_image_full_name" -f /var/lib/jenkins/whanos_images/$project_type/Dockerfile.standalone .
+docker_image_full_name="$registry/$docker_image_name:$docker_tag"
+docker build -t "$docker_image_full_name" -f "$dockerfile" .
 
-    echo "pushing to registry"
-    docker push "$docker_image_full_name"
+echo "pushing to registry"
+docker push "$docker_image_full_name"
+echo "kubernetes detected: $k8"
+
+if [[ "$k8" == "true" ]];
+then
+    echo "kubernetes detected: $k8"
+    kubectl --kubeconfig=/var/lib/jenkins/.kube/config create deployment "$user.$repo.$branch" --image="$docker_image_full_name"
 fi

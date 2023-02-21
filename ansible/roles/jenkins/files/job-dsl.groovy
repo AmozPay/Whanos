@@ -54,17 +54,14 @@ job ('link-project') {
         stringParam('GITHUB_OWNER', '', 'GitHub repository owner')
         stringParam('GITHUB_REPO', '', 'GitHub repository repository name')
         stringParam('GITHUB_CREDENTIALS', '', 'Github Token for private repo. Leave empty if public')
-        stringParam('BRANCH', '', 'Branch to pull. If empty, will get the repository default branch')
+        stringParam('BRANCH', 'main', 'Branch to pull. Defaults to "main"')
     }
     steps {
         dsl {
             text ('''
                     folder("Projects/$GITHUB_OWNER") {}
                     folder("Projects/$GITHUB_OWNER/$GITHUB_REPO") {}
-                    job("Projects/$GITHUB_OWNER/$GITHUB_REPO/::$BRANCH") {
-                        wrappers {
-                            preBuildCleanup()
-                        }
+                    job("Projects/$GITHUB_OWNER/$GITHUB_REPO/$BRANCH") {
                         scm {
                             git {
                                 remote {
@@ -80,7 +77,7 @@ job ('link-project') {
                             }
                         }
                         steps {
-                            shell("build_and_deploy $GITHUB_OWNER/$GITHUB_REPO")
+                            shell("build_and_deploy $GITHUB_OWNER $GITHUB_REPO")
                         }
                     }
             '''.stripIndent())
