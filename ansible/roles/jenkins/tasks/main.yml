@@ -66,10 +66,13 @@
         remote_src: true
 
     - name: init doctl
-      command: doctl auth init
+      command:
+        cmd: doctl auth init
+        creates: /var/lib/jenkins/.config/doctl/config.yaml
       become_user: jenkins
       environment:
         DIGITALOCEAN_ACCESS_TOKEN: "{{ digitalocean_token }}"
+
 
     - name: get kubectl config
       become_user: jenkins
