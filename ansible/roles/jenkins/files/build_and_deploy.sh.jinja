@@ -49,5 +49,5 @@ echo "kubernetes detected: $k8"
 if [[ "$k8" == "true" ]];
 then
     echo "kubernetes detected: $k8"
-    kubectl --kubeconfig=/var/lib/jenkins/.kube/config create deployment "$user.$repo.$branch" --image="$docker_image_full_name"
+    echo "$(format_k8_deployment whanos.yml $user.$repo.$branch $docker_image_full_name)" | kubectl --kubeconfig=/var/lib/jenkins/.kube/config apply -f -
 fi
