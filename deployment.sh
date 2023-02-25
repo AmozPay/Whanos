@@ -101,8 +101,7 @@ case $1 in
 
 
 		cd ../ansible
-		# echo -ne "[kubernetes]\n$K8_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root\n" > hosts.txt
-		echo -ne "[jenkins]\n$JENKINS_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root ansible_become_password=$BECOME_PASS\n" >> hosts.txt
+		echo -ne "[jenkins]\n$JENKINS_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root ansible_become_password=$BECOME_PASS\n" > hosts.txt
 		echo -ne "[registry]\n$REGISTRY_IP	ansible_ssh_private_key_file=$HOME/.ssh/id_rsa ansible_user=root  ansible_become_password=$BECOME_PASS\n" >> hosts.txt
 
 		echo "registry_user: $REGISTRY_USER" > vars.yml
