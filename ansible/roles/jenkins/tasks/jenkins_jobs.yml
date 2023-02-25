@@ -38,7 +38,7 @@
     - javascript
     - python
 
-- name: Copy format_k8_deployment.py to /bin/format_k8_deployment
+- name: Copy format_k8_deployment.py to /bin/format_k8_deployment.py
   ansible.builtin.copy:
     src: "files/format_k8_deployment.py"
     dest: /usr/bin/format_k8_deployment.py
@@ -61,7 +61,9 @@
 
 - name: install whanos_cli pip requirements
   pip:
-    name: typer
+    name:
+      - typer
+      - typeguard
 
 - name: Start jenkins
   ansible.builtin.systemd:

@@ -55,7 +55,7 @@ def get_branch_name() -> str:
 
 def compute_docker_tag(user: str, repo: str) -> str:
     branch = get_branch_name()
-    return f"{user}.{repo}.{branch}"
+    return f"{user.lower()}.{repo.lower()}.{branch}"
 
 def compute_image_fullname(user: str, repo: str, registry_url: str) -> str:
     language = detect_language()
@@ -72,7 +72,7 @@ def build(user: str, repo: str, registry_url: str):
     if detect_docker():
         dockerfilePath = "./Dockerfile"
     else:
-        dockerfilePath = "/var/lib/jenkins/whanos_images/{language}/Dockerfile.standalone"
+        dockerfilePath = f"/var/lib/jenkins/whanos_images/{language}/Dockerfile.standalone"
     docker_image_full_name = compute_image_fullname(user, repo, registry_url)
     os.system(f"docker build -t {docker_image_full_name} -f {dockerfilePath} .")
 
@@ -87,10 +87,10 @@ def maybe_deploy(user: str, repo: str, registry_url: str):
     if detect_kubernetes():
         print("Kubernetes configuration file detected. Deploying...")
         docker_image_fullname = compute_image_fullname(user, repo, registry_url)
-        deployment_name = f"{user}.{repo}.{get_branch_name()}"
-        kubeconfig_path = "=/var/lib/jenkins/.kube/config"
+        deployment_name = f"{user.lower()}-{repo.lower()}-{get_branch_name()}"
+        kubeconfig_path = "/var/lib/jenkins/.kube/config"
         schema = format_k8_deployment("./whanos.yml", deployment_name, docker_image_fullname)
-        exit_code = os.system(f"echo {schema} | kubectl --kubeconfig={kubeconfig_path} apply -f -")
+        exit_code = os.system(f"kubectl --kubeconfig={kubeconfig_path} apply -f - << EOT\n{schema}\nEOT")
         exit(exit_code)
     else:
         print("No whanos.yml file detected. Skipping")
