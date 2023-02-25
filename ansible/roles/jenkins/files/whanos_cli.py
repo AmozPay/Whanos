@@ -47,7 +47,7 @@ def detect_kubernetes():
 
 
 def get_branch_name() -> str:
-    branch = str(subprocess.check_ouput(["git", "name-rev",  "--name-only", "HEAD"]))
+    branch = str(subprocess.check_output(["git", "name-rev",  "--name-only", "HEAD"]))
     tmp_list = branch.split("/")
     del tmp_list[0]
     del tmp_list[1]
@@ -68,10 +68,11 @@ def compute_image_fullname(user: str, repo: str, registry_url: str) -> str:
 
 @app.command()
 def build(user: str, repo: str, registry_url: str):
+    language = detect_language()
     if detect_docker():
         dockerfilePath = "./Dockerfile"
     else:
-        dockerfilePath = "/var/lib/jenkins/whanos_images/$project_type/Dockerfile.standalone"
+        dockerfilePath = "/var/lib/jenkins/whanos_images/{language}/Dockerfile.standalone"
     docker_image_full_name = compute_image_fullname(user, repo, registry_url)
     os.system(f"docker build -t {docker_image_full_name} -f {dockerfilePath} .")
 

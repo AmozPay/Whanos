@@ -42,7 +42,7 @@
   ansible.builtin.copy:
     src: "files/format_k8_deployment.py"
     dest: /usr/bin/format_k8_deployment.py
-    mode: '0751'
+    mode: '0755'
     owner: root
     group: root
 
@@ -50,9 +50,18 @@
   ansible.builtin.copy:
     src: "files/whanos_cli.py"
     dest: /usr/bin/whanos_cli
-    mode: '0751'
+    mode: '0755'
     owner: root
     group: root
+
+- name: install pip
+  yum:
+    name:
+      - pip
+
+- name: install whanos_cli pip requirements
+  pip:
+    name: typer
 
 - name: Start jenkins
   ansible.builtin.systemd:
