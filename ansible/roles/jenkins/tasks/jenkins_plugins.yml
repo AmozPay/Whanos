@@ -1,0 +1,65 @@
+
+- name: Wait for Jenkins to be reachable
+  uri:
+    url: https://jenkins.{{ domain_name }}/login
+    status_code: 200
+    timeout: 5
+  register: jenkins_service_status
+  # Keep trying for 5 mins in 5 sec intervals
+  retries: 60
+  delay: 5
+  until: >
+     'status' in jenkins_service_status and
+     jenkins_service_status['status'] == 200
+
+- name: Install  plugins and their missing dependecies
+  community.general.jenkins_plugin:
+    name: "{{ item }}"
+    state: present
+    url_username: "{{ jenkins_admin_user }}"
+    url_password: "{{ jenkins_admin_passwd }}"
+    url: https://jenkins.{{ domain_name }}
+  loop:
+    - configuration-as-code
+    - credentials
+    - github
+    - job-dsl
+    - role-strategy
+    - script-security
+    - ws-cleanup
+  register: plugins
+
+- name: restart jenkins
+  ansible.builtin.systemd:
+    name: jenkins
+    state: restarted
+  when: plugins.changed
+
+- name: Wait for Jenkins to be reachable
+  uri:
+    url: https://jenkins.{{ domain_name }}/login
+    status_code: 200
+    timeout: 5
+  register: jenkins_service_status
+  # Keep trying for 5 mins in 5 sec intervals
+  retries: 60
+  delay: 5
+  until: >
+     'status' in jenkins_service_status and
+     jenkins_service_status['status'] == 200
+
+- name: enable plugins (with new password)
+  community.general.jenkins_plugin:
+    name: "{{ item }}"
+    state: enabled
+    url_username: "{{ jenkins_admin_user }}"
+    url_password: "{{ jenkins_admin_passwd }}"
+    url: https://jenkins.{{ domain_name }}
+  loop:
+    # - configuration-as-code
+    - credentials
+    - github
+    - job-dsl
+    - role-strategy
+    - script-security
+    - ws-cleanup

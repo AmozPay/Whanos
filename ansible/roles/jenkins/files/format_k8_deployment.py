@@ -82,13 +82,15 @@ def template_deployment(whanos_yaml_obj: any, app_name: str, image_name: str) ->
         deployment_obj['spec']['template']['spec']['containers'][0]['ports'].append({'containerPort': value})
     return deployment_obj
 
-def main(yaml_config: str, deployment_name: str, image: str):
+def format_k8_deployment(yaml_config: str, deployment_name: str, image: str) -> str:
     with open(yaml_config) as stream:
         whanos = yaml.safe_load(stream)
         deployment_file = template_deployment(whanos, deployment_name, image)
         service_file = template_service(whanos, deployment_name)
-        k8_config = "---\n" + yaml.safe_dump(service_file) + "---\n" + yaml.safe_dump(deployment_file)
-        print(k8_config)
+        return "---\n" + yaml.safe_dump(service_file) + "---\n" + yaml.safe_dump(deployment_file)
+
+def main(yaml_config: str, deployment_name: str, image: str):
+    print(format_k8_deployment(yaml_config, deployment_name, image))
 
 if __name__ == "__main__":
     typer.run(main)

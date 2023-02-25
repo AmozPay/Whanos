@@ -1,0 +1,62 @@
+
+- name: template jobs
+  template:
+    src: files/job-dsl.groovy.jinja
+    dest: /var/lib/jenkins/job_dsl.groovy
+  register: jobs
+  vars:
+    registry_url: registry.{{ domain_name }}
+
+- name: add jenkins to docker group
+  user:
+    name: jenkins
+    groups: docker
+    append: true
+  register: user_group
+
+- name: Log into private registry
+  community.docker.docker_login:
+    registry_url: registry.{{ domain_name }}
+    username: "{{ registry_user }}"
+    password: "{{ registry_passwd }}"
+  become_user: jenkins
+
+- name: make sure /var/lib/jenkins/whanos_images exists
+  ansible.builtin.file:
+    path: /var/lib/jenkins/whanos_images
+    state: directory
+    mode: '0755'
+
+- name: Copy whanos image build files
+  ansible.builtin.copy:
+    src: "files/whanos_images/{{ item }}"
+    dest: /var/lib/jenkins/whanos_images
+  loop:
+    - befunge
+    - c
+    - java
+    - javascript
+    - python
+
+- name: Copy format_k8_deployment.py to /bin/format_k8_deployment
+  ansible.builtin.copy:
+    src: "files/format_k8_deployment.py"
+    dest: /usr/bin/format_k8_deployment.py
+    mode: '0751'
+    owner: root
+    group: root
+
+- name: Copy whanos_cli to /usr/bin/whanos_cli
+  ansible.builtin.copy:
+    src: "files/whanos_cli.py"
+    dest: /usr/bin/whanos_cli
+    mode: '0751'
+    owner: root
+    group: root
+
+- name: Start jenkins
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    name: jenkins
+    state: restarted
+  when: jobs.changed

@@ -1,0 +1,60 @@
+- name: copy kubernetes repo
+  copy:
+    src: files/kubernetes.repo
+    dest: /etc/yum.repos.d/kubernetes.repo
+  register: kubernetes
+
+- name: Install kubectl
+  yum:
+    name:
+      - kubectl
+      - curl
+    update_cache: true
+  register: apt_status
+  until: apt_status is success
+  delay: 6
+  retries: 10
+
+- name: install and configure doctl if kubeconfig is not provided, and connect kubectl to k8 cluster
+  when: lookup('ansible.builtin.fileglob', 'files/kubeconfig.yaml') == []
+  block:
+    - name: download doctl
+      get_url:
+        url: https://github.com/digitalocean/doctl/releases/download/v1.92.0/doctl-1.92.0-linux-amd64.tar.gz
+        dest: /root/doctl.tar.gz
+
+    - name: unar doctl and move to path
+      unarchive:
+        src: /root/doctl.tar.gz
+        dest: /usr/local/bin
+        remote_src: true
+
+    - name: init doctl
+      command:
+        cmd: doctl auth init
+        creates: /var/lib/jenkins/.config/doctl/config.yaml
+      become_user: jenkins
+      environment:
+        DIGITALOCEAN_ACCESS_TOKEN: "{{ digitalocean_token }}"
+
+    - name: get kubectl config
+      become_user: jenkins
+      command:
+        cmd: doctl kubernetes cluster kubeconfig save {{ k8_id }}
+        creates: /var/lib/jenkins/.kube/config
+
+- name: upload kubectl config from local
+  when: lookup('ansible.builtin.fileglob', 'files/kubeconfig.yaml') != []
+  block:
+    - name: make sure .kube folder exists
+      file:
+        path: /var/lib/jenkins/.kube
+        state: directory
+        owner: jenkins
+        group: jenkins
+
+    - name: upload kubectl config
+      copy:
+        src: files/kubeconfig.yaml
+        dest: /var/lib/jenkins/.kube/config
+      become_user: jenkins

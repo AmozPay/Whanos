@@ -1,0 +1,58 @@
+- name: Download Long Term Jenkins release repo
+  get_url:
+    url: https://pkg.jenkins.io/redhat-stable/jenkins.repo
+    dest: /etc/yum.repos.d/jenkins.repo
+
+- name: Import jenkins key from url
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+
+
+- name: Install jenkins, and other packages
+  yum:
+    name:
+      - git
+      - java
+      - java-devel
+      - jenkins
+      - curl
+    update_cache: true
+  register: apt_status
+  until: apt_status is success
+  delay: 6
+  retries: 10
+
+- name: copy jenkins config
+  copy:
+    src: files/jenkins.service
+    dest: /lib/systemd/system/jenkins.service
+  register: jenkinsfile
+
+- name: Template CasC
+  ansible.builtin.template:
+    src: files/jenkins.yaml.jinja
+    dest: /var/lib/jenkins/jenkins.yaml
+  register: casc
+
+- name: create jenkins plugins dir
+  file:
+    path: /var/lib/jenkins/plugins
+    state: directory
+    owner: jenkins
+    group: jenkins
+
+- name: download casc plugin before setup
+  get_url:
+    url: "https://updates.jenkins-ci.org/latest/{{ item }}.hpi"
+    dest: /var/lib/jenkins/plugins/{{ item }}.jpi
+  loop:
+    - configuration-as-code
+  register: plugins
+
+- name: Start jenkins
+  ansible.builtin.systemd:
+    daemon_reload: yes
+    name: jenkins
+    state: restarted
+  when: jenkinsfile.changed or casc.changed or plugins.changed
