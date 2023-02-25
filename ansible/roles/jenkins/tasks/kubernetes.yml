@@ -58,3 +58,47 @@
         src: files/kubeconfig.yaml
         dest: /var/lib/jenkins/.kube/config
       become_user: jenkins
+
+- name: install required pip packages
+  pip:
+    name:
+      - kubernetes
+
+- name: Create ingress controller
+  become_user: jenkins
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: minimal-ingress
+        namespace: default
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        ingressClassName: nginx-example
+        defaultBackend:
+          service:
+            name: tea-svc
+            port:
+              number: 80
+
+- name: Get docker registry
+  ansible.builtin.slurp:
+    src: /var/lib/jenkins/.docker/config.json
+  register: dockerconfigjson
+
+- name: Create registry secret
+  become_user: jenkins
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: regcred
+        namespace: default
+      data:
+        .dockerconfigjson: "{{ dockerconfigjson['content'] }}"
+      type: kubernetes.io/dockerconfigjson

@@ -15,6 +15,28 @@ class DeploymentDict(TypedDict):
 class ValidWhanosYaml(TypedDict):
   deployment: DeploymentDict
 
+ingress_template = """
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minimal-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx-example
+"""
+
+ingress_rule_template = """
+http:
+  paths:
+  - path: /{app_name}
+    pathType: Prefix
+    backend:
+      service:
+        name: {app_name}-service
+        port:
+          number: {port}
+"""
 
 service_schema_template = """
 apiVersion: v1
@@ -63,6 +85,8 @@ spec:
             memory: 64M
         ports:
         - containerPort: 80
+      imagePullSecrets:
+      - name: regcred
       restartPolicy: Always
       affinity:
         podAntiAffinity:
@@ -95,14 +119,24 @@ def template_deployment(whanos_yaml_obj: any, app_name: str, image_name: str) ->
         deployment_obj['spec']['template']['spec']['containers'][0]['ports'].append({'containerPort': value})
     return deployment_obj
 
+def template_ingress(whanos_yaml_obj: any, app_name: str) -> any:
+    ingress_template_obj = yaml.safe_load(ingress_template)
+    ingress_template_obj['spec']['rules'] = []
+    for value in whanos_yaml_obj['deployment']['ports']:
+        ingress_rule_str = ingress_rule_template.format(port=value, app_name=app_name)
+        ingress_rule_obj = yaml.safe_load(ingress_rule_str)
+        ingress_template_obj['spec']['rules'].append(ingress_rule_obj)
+    return ingress_template_obj
+
 def format_k8_deployment(yaml_config: str, deployment_name: str, image: str) -> str:
     with open(yaml_config) as stream:
         whanos = yaml.safe_load(stream)
         try:
             check_type("whanos", whanos, ValidWhanosYaml)
-            deployment_file = template_deployment(whanos, deployment_name, image)
-            service_file = template_service(whanos, deployment_name)
-            return "---\n" + yaml.safe_dump(service_file) + "---\n" + yaml.safe_dump(deployment_file)
+            deployment_file = yaml.safe_dump(template_deployment(whanos, deployment_name, image))
+            service_file = yaml.safe_dump(template_service(whanos, deployment_name))
+            ingress_file = yaml.safe_dump(template_ingress(whanos, deployment_name))
+            return "---\n".join(["", service_file, deployment_file, ingress_file, ""])
         except:
             print("Invalid whanos.yml file", file=stderr)
             exit(1)
