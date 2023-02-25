@@ -1,3 +1,6 @@
 FROM node:14
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 WORKDIR /app
+ONBUILD COPY package.json .
+ONBUILD RUN npm install
+ONBUILD COPY . .

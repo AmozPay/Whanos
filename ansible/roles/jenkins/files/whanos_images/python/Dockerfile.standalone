@@ -1,2 +1,2 @@
 FROM whanos-python
-ENTRYPOINT ["python", "-m", "app"]
+CMD ["python", "-m", "app"]

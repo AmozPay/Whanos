@@ -1,2 +1,2 @@
 FROM whanos-befunge
-ENTRYPOINT ["/bin/bef", "main.bf"]
+CMD ["/bin/bef", "main.bf"]
