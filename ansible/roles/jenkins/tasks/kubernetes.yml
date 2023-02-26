@@ -45,6 +45,26 @@
         cmd: doctl kubernetes cluster kubeconfig save {{ k8_id }}
         creates: /var/lib/jenkins/.kube/config
 
+    - name: Get kubeconfig if not present on host
+      ansible.builtin.slurp:
+        src: /var/lib/jenkins/.kube/config
+      register: kubeconfig
+
+    - name: copy kubeconfig to localhost
+      delegate_to: localhost
+      become: false
+      copy:
+        dest: roles/jenkins/files/kubeconfig.yaml
+        content: "{{ kubeconfig['content'] | b64decode }}"
+    # - name: copy kubeconfig to localhost
+      # delegate_to: localhost
+      # become: false
+      # command:
+      #   # cmd: "cat > files/kubeconfig.yaml << EOF\n{{ kubeconfig['content'] | b64decode }}EOF"
+        # creates: files/kubeconfig.yaml
+
+# end of block
+
 - name: upload kubectl config from local
   when: lookup('ansible.builtin.fileglob', 'files/kubeconfig.yaml') != []
   block:
@@ -66,26 +86,40 @@
     name:
       - kubernetes
 
-- name: Add stable nginx chart repo
+- name: install required pip packages on host
+  become: false
+  delegate_to: localhost
+  pip:
+    name:
+      - kubernetes
+
+- name: Add stable caddy chart repo
   become_user: jenkins
   kubernetes.core.helm_repository:
-    name: ingress-nginx
-    repo_url: "https://kubernetes.github.io/ingress-nginx"
+    name: ingress-caddy
+    repo_url: "https://caddyserver.github.io/ingress/"
   register: repo
 
 - debug:
     msg: "{{ repo.command }}"
   when: repo.changed
 
-- name: Deploy ngninx ingress controller with helm
+- name: Deploy caddy ingress controller with helm
+  register: caddy_ingress
+  until: caddy_ingress is success
+  delay: 6
+  retries: 10
   become_user: jenkins
   kubernetes.core.helm:
     name: ingress-controller
     update_repo_cache: True
-    chart_ref: ingress-nginx/ingress-nginx
-    release_namespace: ingress-nginx
+    chart_ref: ingress-caddy/caddy-ingress-controller
+    release_namespace: caddy-system
     create_namespace: true
     kubeconfig: /var/lib/jenkins/.kube/config
+    values:
+      ingressController.config.email: "{{ certificate_email }}"
+      ingressController.config.onDemandTLS: true
 
 - name: Create ingress
   become_user: jenkins
@@ -100,11 +134,10 @@
       kind: Ingress
       metadata:
         name: minimal-ingress
-        namespace: ingress-nginx
+        namespace: caddy-system
         annotations:
-          nginx.ingress.kubernetes.io/rewrite-target: /
+          kubernetes.io/ingress.class: caddy
       spec:
-        ingressClassName: nginx
         defaultBackend:
           service:
             name: tea-svc
@@ -129,3 +162,73 @@
       data:
         .dockerconfigjson: "{{ dockerconfigjson['content'] }}"
       type: kubernetes.io/dockerconfigjson
+
+- name: Get load balancer info
+  delegate_to: localhost
+  become: false
+  set_fact:
+    k8_services: "{{ query('kubernetes.core.k8s', kind='Service', namespace='caddy-system', kubeconfig='roles/jenkins/files/kubeconfig.yaml') }}"
+
+- name: Get loadbalancer ip
+  delegate_to: localhost
+  become: false
+  set_fact:
+    k8_loadbalancer_ip: "{{ k8_services[0]['status']['loadBalancer']['ingress'][0]['ip']  }}"
+
+- name: Get dns record id if any
+  become: false
+  delegate_to: localhost
+  command:
+    cmd: 'sh -c "doctl compute domain records list {{ domain_name }} | grep k8 | cut -d \" \" -f 1  > record_id"'
+    creates: record_id
+
+- name: Get dns wildcard record id if any
+  become: false
+  delegate_to: localhost
+  command:
+    cmd: 'sh -c "doctl compute domain records list {{ domain_name }} | grep "*.k8" | cut -d \" \" -f 1  > wildcard_record_id"'
+    creates: wildcard_record_id
+
+- name: set record_id fact
+  delegate_to: localhost
+  become: false
+  set_fact:
+    record_id: "{{ lookup('file', 'record_id') }}"
+
+- name: set wildcard_record_id fact
+  delegate_to: localhost
+  become: false
+  set_fact:
+    wildcard_record_id: "{{ lookup('file', 'wildcard_record_id') }}"
+
+- name: create dns record
+  when: record_id == ''
+  become: false
+  delegate_to: localhost
+  command:
+    cmd: 'sh -c "doctl compute domain records create {{ domain_name }} --record-name k8 --record-type A --record-ttl 60 --record-data {{ k8_loadbalancer_ip }} > created_record"'
+    creates: created_record
+
+- name: update dns record
+  when: record_id != ''
+  become: false
+  delegate_to: localhost
+  command:
+    cmd: 'sh -c "doctl compute domain records update {{ domain_name }}  --record-id {{ record_id }} --record-name k8 --record-type A --record-ttl 60 --record-data {{ k8_loadbalancer_ip }} > created_record"'
+    creates: created_record
+
+- name: create wildcard record
+  when: wildcard_record_id == ''
+  become: false
+  delegate_to: localhost
+  command:
+    cmd: 'sh -c "doctl compute domain records create {{ domain_name }} --record-name *.k8 --record-type A --record-ttl 60 --record-data {{ k8_loadbalancer_ip }} > created_wildcard_record"'
+    creates: created_wildcard_record
+
+- name: update wildcard record
+  when: wildcard_record_id != ''
+  become: false
+  delegate_to: localhost
+  command:
+    cmd: 'sh -c "doctl compute domain records update {{ domain_name }} --record-id {{ record_id }} --record-name *.k8 --record-type A --record-ttl 60 --record-data {{ k8_loadbalancer_ip }} > created_wildcard_record"'
+    creates: created_wildcard_record

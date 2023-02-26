@@ -38,8 +38,8 @@
     - javascript
     - python
 
-- name: Copy format_k8_deployment.py to /bin/format_k8_deployment.py
-  ansible.builtin.copy:
+- name: template format_k8_deployment.py to /bin/format_k8_deployment.py
+  ansible.builtin.template:
     src: "files/format_k8_deployment.py"
     dest: /usr/bin/format_k8_deployment.py
     mode: '0755'
