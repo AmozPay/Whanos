@@ -3,4 +3,5 @@ SHELL ["/bin/bash", "-c"]
 WORKDIR /app
 ONBUILD COPY . .
 ONBUILD RUN mvn package
+ONBUILD EXPOSE 80
 

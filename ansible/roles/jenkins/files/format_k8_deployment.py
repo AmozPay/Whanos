@@ -22,8 +22,9 @@ metadata:
   name: minimal-ingress
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+  namespace: default
 spec:
-  ingressClassName: nginx-example
+  ingressClassName: nginx
 """
 
 ingress_rule_template = """
@@ -133,13 +134,13 @@ def format_k8_deployment(yaml_config: str, deployment_name: str, image: str) -> 
         whanos = yaml.safe_load(stream)
         try:
             check_type("whanos", whanos, ValidWhanosYaml)
-            deployment_file = yaml.safe_dump(template_deployment(whanos, deployment_name, image))
-            service_file = yaml.safe_dump(template_service(whanos, deployment_name))
-            ingress_file = yaml.safe_dump(template_ingress(whanos, deployment_name))
-            return "---\n".join(["", service_file, deployment_file, ingress_file, ""])
         except:
             print("Invalid whanos.yml file", file=stderr)
             exit(1)
+        deployment_file = yaml.safe_dump(template_deployment(whanos, deployment_name, image))
+        service_file = yaml.safe_dump(template_service(whanos, deployment_name))
+        ingress_file = yaml.safe_dump(template_ingress(whanos, deployment_name))
+        return "---\n".join(["", service_file, deployment_file, ingress_file, ""])
 
 def main(yaml_config: str, deployment_name: str, image: str):
     print(format_k8_deployment(yaml_config, deployment_name, image))

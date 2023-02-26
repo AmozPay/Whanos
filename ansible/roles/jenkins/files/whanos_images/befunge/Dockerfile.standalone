@@ -1,2 +1,3 @@
 FROM whanos-befunge
+EXPOSE 80
 CMD ["/bin/bef", "main.bf"]

@@ -4,3 +4,4 @@ WORKDIR /app
 ONBUILD COPY package.json .
 ONBUILD RUN npm install
 ONBUILD COPY . .
+ONBUILD EXPOSE 80

@@ -3,3 +3,4 @@ SHELL ["/bin/bash", "-c"]
 WORKDIR /app
 ONBUILD COPY . .
 ONBUILD RUN make
+ONBUILD EXPOSE 80

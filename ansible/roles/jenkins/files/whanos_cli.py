@@ -47,11 +47,12 @@ def detect_kubernetes():
 
 
 def get_branch_name() -> str:
-    branch = str(subprocess.check_output(["git", "name-rev",  "--name-only", "HEAD"]))
+    branch = subprocess.check_output(["git", "name-rev",  "--name-only", "HEAD"]).decode('utf-8')
     tmp_list = branch.split("/")
     del tmp_list[0]
-    del tmp_list[1]
-    return "/".join(tmp_list)
+    del tmp_list[0]
+    # return branch
+    return "/".join(tmp_list).strip()
 
 def compute_docker_tag(user: str, repo: str) -> str:
     branch = get_branch_name()
@@ -74,12 +75,16 @@ def build(user: str, repo: str, registry_url: str):
     else:
         dockerfilePath = f"/var/lib/jenkins/whanos_images/{language}/Dockerfile.standalone"
     docker_image_full_name = compute_image_fullname(user, repo, registry_url)
-    os.system(f"docker build -t {docker_image_full_name} -f {dockerfilePath} .")
+    build_command = f"docker build -t {docker_image_full_name} -f {dockerfilePath} ."
+    print(f"building with command '{build_command}'", flush=True)
+    os.system(build_command)
 
 @app.command()
 def push(user: str, repo: str, registry_url: str):
     docker_image_full_name = compute_image_fullname(user, repo, registry_url)
-    exit_code = os.system(f"docker push {docker_image_full_name}")
+    push_command = f"docker push {docker_image_full_name}"
+    print(f"Pushing with command '{push_command}'", flush=True)
+    exit_code = os.system(push_command)
     exit(exit_code)
 
 @app.command()
@@ -87,10 +92,12 @@ def maybe_deploy(user: str, repo: str, registry_url: str):
     if detect_kubernetes():
         print("Kubernetes configuration file detected. Deploying...")
         docker_image_fullname = compute_image_fullname(user, repo, registry_url)
-        deployment_name = f"{user.lower()}-{repo.lower()}-{get_branch_name()}"
+        deployment_name = f"{user.lower().strip()}-{repo.lower().strip()}-{get_branch_name()}"
         kubeconfig_path = "/var/lib/jenkins/.kube/config"
         schema = format_k8_deployment("./whanos.yml", deployment_name, docker_image_fullname)
-        exit_code = os.system(f"kubectl --kubeconfig={kubeconfig_path} apply -f - << EOT\n{schema}\nEOT")
+        deploy_command = f"kubectl --kubeconfig={kubeconfig_path} apply -f - << EOT\n{schema}\nEOT"
+        print(f"Deploying with command '{deploy_command}'", flush=True)
+        exit_code = os.system(deploy_command)
         exit(exit_code)
     else:
         print("No whanos.yml file detected. Skipping")

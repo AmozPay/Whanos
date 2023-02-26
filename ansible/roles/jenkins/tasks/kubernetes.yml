@@ -4,11 +4,13 @@
     dest: /etc/yum.repos.d/kubernetes.repo
   register: kubernetes
 
-- name: Install kubectl
+- name: Install kubectl, helm and pip
   yum:
     name:
       - kubectl
       - curl
+      - helm
+      - pip
     update_cache: true
   register: apt_status
   until: apt_status is success
@@ -64,8 +66,33 @@
     name:
       - kubernetes
 
-- name: Create ingress controller
+- name: Add stable nginx chart repo
   become_user: jenkins
+  kubernetes.core.helm_repository:
+    name: ingress-nginx
+    repo_url: "https://kubernetes.github.io/ingress-nginx"
+  register: repo
+
+- debug:
+    msg: "{{ repo.command }}"
+  when: repo.changed
+
+- name: Deploy ngninx ingress controller with helm
+  become_user: jenkins
+  kubernetes.core.helm:
+    name: ingress-controller
+    update_repo_cache: True
+    chart_ref: ingress-nginx/ingress-nginx
+    release_namespace: ingress-nginx
+    create_namespace: true
+    kubeconfig: /var/lib/jenkins/.kube/config
+
+- name: Create ingress
+  become_user: jenkins
+  register: ingress
+  until: ingress is success
+  delay: 6
+  retries: 10
   kubernetes.core.k8s:
     state: present
     definition:
@@ -73,11 +100,11 @@
       kind: Ingress
       metadata:
         name: minimal-ingress
-        namespace: default
+        namespace: ingress-nginx
         annotations:
           nginx.ingress.kubernetes.io/rewrite-target: /
       spec:
-        ingressClassName: nginx-example
+        ingressClassName: nginx
         defaultBackend:
           service:
             name: tea-svc

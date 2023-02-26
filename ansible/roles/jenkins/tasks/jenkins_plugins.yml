@@ -5,7 +5,6 @@
     status_code: 200
     timeout: 5
   register: jenkins_service_status
-  # Keep trying for 5 mins in 5 sec intervals
   retries: 60
   delay: 5
   until: >
@@ -28,6 +27,9 @@
     - script-security
     - ws-cleanup
   register: plugins
+  retries: 60
+  delay: 5
+  until: plugins is success
 
 - name: restart jenkins
   ansible.builtin.systemd:
