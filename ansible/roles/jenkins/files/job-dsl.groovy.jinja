@@ -77,9 +77,34 @@ job ('link-project') {
                             }
                         }
                         steps {
-                            shell("whanos_cli build $GITHUB_OWNER $GITHUB_REPO {{ registry_url }}")
-                            shell("whanos_cli push $GITHUB_OWNER $GITHUB_REPO {{ registry_url }}")
-                            shell("whanos_cli maybe-deploy $GITHUB_OWNER $GITHUB_REPO {{ registry_url }}")
+                            shell {
+                                command("whanos_cli build $GITHUB_OWNER $GITHUB_REPO {{ registry_url }}")
+                                unstableReturn(1)
+                            }
+                            conditionalSteps {
+                                condition {
+                                    status('SUCCESS', 'SUCCESS')
+                                }
+                                runner('Fail')
+                                steps {
+                                    shell {
+                                        command("whanos_cli push $GITHUB_OWNER $GITHUB_REPO {{ registry_url }}")
+                                        unstableReturn(1)
+                                    }
+                                }
+                            }
+                            conditionalSteps {
+                                condition {
+                                    status('SUCCESS', 'SUCCESS')
+                                }
+                                runner('Fail')
+                                steps {
+                                    shell {
+                                        command("whanos_cli maybe-deploy $GITHUB_OWNER $GITHUB_REPO {{ registry_url }}")
+                                        unstableReturn(1)
+                                    }
+                                }
+                            }
                         }
                     }
             '''.stripIndent())

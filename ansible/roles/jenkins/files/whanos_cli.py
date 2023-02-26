@@ -85,7 +85,8 @@ def push(user: str, repo: str, registry_url: str):
     push_command = f"docker push {docker_image_full_name}"
     print(f"Pushing with command '{push_command}'", flush=True)
     exit_code = os.system(push_command)
-    exit(exit_code)
+    if exit_code != 0:
+        exit(1)
 
 @app.command()
 def maybe_deploy(user: str, repo: str, registry_url: str):
