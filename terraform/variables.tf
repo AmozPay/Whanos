@@ -46,5 +46,5 @@ variable "k8_node_size" {
 
 variable "k8_subdomain" {
     type = string
-    default = "app"
+    default = "k8"
 }

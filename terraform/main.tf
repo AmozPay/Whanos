@@ -28,6 +28,14 @@ resource "digitalocean_record" "jenkins_subdomain" {
   ttl = 60
 }
 
+resource "digitalocean_record" "k8_subdomain" {
+  type = "A"
+  name = "${var.k8_subdomain}"
+  domain = data.digitalocean_domain.domain.id
+  value = digitalocean_droplet.jenkins_droplet.ipv4_address # place holder, modify it later
+  ttl = 60
+}
+
 
 # DOCKER REGISTRY
 

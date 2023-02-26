@@ -20,17 +20,17 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: minimal-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
   namespace: default
+  annotations:
+    kubernetes.io/ingress.class: caddy
 spec:
-  ingressClassName: nginx
 """
 
 ingress_rule_template = """
+host: {app_name}.k8.{{ domain_name }}
 http:
   paths:
-  - path: /{app_name}
+  - path: /
     pathType: Prefix
     backend:
       service:
@@ -122,7 +122,7 @@ def template_deployment(whanos_yaml_obj: any, app_name: str, image_name: str) ->
 
 def template_ingress(whanos_yaml_obj: any, app_name: str) -> any:
     ingress_template_obj = yaml.safe_load(ingress_template)
-    ingress_template_obj['spec']['rules'] = []
+    ingress_template_obj['spec'] = {'rules': []}
     for value in whanos_yaml_obj['deployment']['ports']:
         ingress_rule_str = ingress_rule_template.format(port=value, app_name=app_name)
         ingress_rule_obj = yaml.safe_load(ingress_rule_str)
