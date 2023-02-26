@@ -25,20 +25,16 @@ If `/whanos.yml` is found, the containers will be deployed on the cluster
 
 Deployed apps naming follows this pattern: "GITHUB_USER-REPO-BRANCH_NAME"
 
-The app will be available at http://K8_CLUSTER_IP/APP_NAME
-
-To get the accessible IP, ssh as root into jenkins instance and run the following command:
-
-`sudo -u jenkins kubectl --kubeconfig=/var/lib/jenkins/.kube/config --namespace ingress-nginx get services`
-
-TLS is not available in this version
+The app will be available at https://APP_NAME.k8.YOUR_DOMAIN/
 
 Ports defined in whanos.yml will be forwarded respectively to the cluster's port.
 
-e.g: if whanos.yml defines a port 80, then app will be accessible at  http://K8_CLUSTER_IP:80/APP_NAME
+HTTPS traffic (port 443) is forwarded to container port 80
 
 Default standalone apps will have container port 80 exposed
 
+LIMITATIONS:
+supported branch names must match domain name naming convention, for example no "@", "/", etc
 
 ## Deployment
 
@@ -56,6 +52,7 @@ Steps:
  - adapt or delete the cloud seting in `terraform/provider.tf` to match your cloud or to save the infrastructure state locally
  - install python requirements with `pip3 install -r requirements.txt`
  - run `./deployment.sh create`
+ - install doctl and run `doctl auth init`
 
 This will create 3 resources
  - A docker container registry at `registry.DOMAIN_NAME`
