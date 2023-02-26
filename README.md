@@ -17,7 +17,27 @@ Supported languages / detection trigger file:
  - befunge / `main.bf`
  - python / `requirements.txt`
 
+
 If `/whanos.yml` is found, the containers will be deployed on the cluster
+
+
+## Accessing deployed Apps
+
+Deployed apps naming follows this pattern: "GITHUB_USER-REPO-BRANCH_NAME"
+
+The app will be available at http://K8_CLUSTER_IP/APP_NAME
+
+To get the accessible IP, ssh as root into jenkins instance and run the following command:
+
+`sudo -u jenkins kubectl --kubeconfig=/var/lib/jenkins/.kube/config --namespace ingress-nginx get services`
+
+TLS is not available in this version
+
+Ports defined in whanos.yml will be forwarded respectively to the cluster's port.
+
+e.g: if whanos.yml defines a port 80, then app will be accessible at  http://K8_CLUSTER_IP:80/APP_NAME
+
+Default standalone apps will have container port 80 exposed
 
 
 ## Deployment
@@ -58,4 +78,5 @@ Steps:
  - install ansible requirements with `ansible-galaxy install -r ansible requirements.yml`
  - setup your ansible hosts file
  - run `cd ansible && ansible-playbook playbook.yml`
+
 
